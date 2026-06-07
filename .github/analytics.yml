@@ -1,1 +1,47 @@
+name: Refresh Analytics Insights
 
+# Runs the Python analytics against the live Google Sheet (via the Apps
+# Script read endpoint) and commits docs/data/insights.json. The commit
+# triggers the Pages deploy workflow, so the published dashboard always
+# carries fresh management insights and §102 compliance flags.
+
+on:
+  schedule:
+    - cron: '0 1 * * *'      # 01:00 UTC daily (~07:00 Bangladesh time)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: analytics
+  cancel-in-progress: false
+
+jobs:
+  analytics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compute insights
+        env:
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+        run: python3 scripts/analytics.py
+
+      - name: Commit insights if changed
+        run: |
+          git config user.name  "guulba-analytics-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if [ -n "$(git status --porcelain docs/data/insights.json)" ]; then
+            git add docs/data/insights.json
+            git commit -m "chore: refresh analytics insights [skip ci]"
+            git push
+          else
+            echo "No change in insights.json — nothing to commit."
+          fi
