@@ -610,17 +610,22 @@ function isoWeek(d){
   const wk=1+Math.round(((t-first)/86400000-3+((first.getUTCDay()+6)%7))/7);
   return {yr:t.getUTCFullYear(),wk};
 }
+const _pkCache=new Map();   // memoize: only ~one entry per unique date
 function periodKeys(dStr){
+  const hit=_pkCache.get(dStr);
+  if(hit) return hit;
   const d=new Date(dStr+'T00:00:00');
   const y=d.getFullYear(), m=d.getMonth(), q=Math.floor(m/3)+1;
   const {yr,wk}=isoWeek(d);
-  return {
+  const out={
     daily:{key:dStr, t:d.getTime(), label:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})},
     weekly:{key:yr+'-W'+String(wk).padStart(2,'0'), t:yr*100+wk, label:'W'+wk+" '"+String(yr).slice(2)},
     monthly:{key:y+'-'+String(m+1).padStart(2,'0'), t:y*100+m, label:d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'})},
     quarterly:{key:y+'-Q'+q, t:y*10+q, label:'Q'+q+" '"+String(y).slice(2)},
     yearly:{key:''+y, t:y, label:''+y},
   };
+  _pkCache.set(dStr,out);
+  return out;
 }
 
 /* Generate daily records (working days, Friday = weekend in Bangladesh) */
@@ -810,16 +815,17 @@ function renderMgmt(){
   // donut by selected dim
   const dim=document.querySelector('#dimSegMgmt .active').dataset.d;
   document.getElementById('mgmtMixSub').textContent='By '+dim;
-  const dimData=byDimension(recs,dim).sort((a,b)=>b.hc-a.hc);
+  const dimAll=byDimension(recs,dim);                       // compute once, reuse below
+  const dimData=[...dimAll].sort((a,b)=>b.hc-a.hc);
   const palette=[C.leather,C.teal,C.amber,C.good,C.alert,C.leatherD,'#7b8aa0','#b06fd1','#5a8fd6','#d68f5a','#6fd1b0'];
   mkChart('mgmtDonut',{type:'doughnut',data:{labels:dimData.map(d=>d.name),
     datasets:[{data:dimData.map(d=>Math.round(d.hc)),backgroundColor:palette,borderColor:'#171d28',borderWidth:2}]},
     options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:10}}}}});
 
   // leaderboards
-  rankList('rankHC', byDimension(recs,dim).sort((a,b)=>b.hc-a.hc),'hc',v=>fmtNum(v)+' HC','');
-  rankList('rankPay',byDimension(recs,dim).sort((a,b)=>b.payroll-a.payroll),'payroll',fmtBDT,'');
-  rankList('rankOT', byDimension(recs,dim).sort((a,b)=>b.otCost-a.otCost),'otCost',fmtBDT,'alert');
+  rankList('rankHC', [...dimAll].sort((a,b)=>b.hc-a.hc),'hc',v=>fmtNum(v)+' HC','');
+  rankList('rankPay',[...dimAll].sort((a,b)=>b.payroll-a.payroll),'payroll',fmtBDT,'');
+  rankList('rankOT', [...dimAll].sort((a,b)=>b.otCost-a.otCost),'otCost',fmtBDT,'alert');
 
   // comparison board
   document.getElementById('cmpLabel').textContent = (cur.label||'—')+'  vs  '+(prev.label||'—');
