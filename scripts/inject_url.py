@@ -14,7 +14,7 @@ import os
 import sys
 import pathlib
 
-PLACEHOLDER = "__APPS_SCRIPT_URL__"
+PLACEHOLDER = "https://script.google.com/macros/s/AKfycbxrBWGP_Y4tbPuynrZGCoD5ARlIPtHgrk9LT6L6HmBh6eJ-AUB_iNno8uqDIn6_LFYbyQ/exec"
 
 
 def main() -> int:
